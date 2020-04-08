@@ -15,27 +15,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sample-source-controller
+  name: postgres-source-controller
   namespace: knative-samples
   labels:
-    samples.knative.dev/release: devel
+    sources.vaikas.dev/release: devel
+    app: postgres-source-controller
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sample-source-controller
+      app: postgres-source-controller
   template:
     metadata:
       labels:
-        app: sample-source-controller
-        samples.knative.dev/release: devel
+        app: postgres-source-controller
+        sources.vaikas.dev/release: devel
     spec:
-      serviceAccountName: sample-source-controller
+      serviceAccountName: postgres-source-controller
 
       containers:
       - name: controller
         terminationMessagePolicy: FallbackToLogsOnError
-        image: ko://knative.dev/sample-source/cmd/controller
+        image: ko://github.com/vaikas/postgressource/cmd/controller
 
         resources:
           requests:
@@ -53,8 +54,8 @@ spec:
             value: config-observability
           - name: METRICS_DOMAIN
             value: knative.dev/sources
-          - name: SAMPLE_SOURCE_RA_IMAGE
-            value: ko://knative.dev/sample-source/cmd/receive_adapter
+          - name: POSTGRES_SOURCE_RA_IMAGE
+            value: ko://github.com/vaikas/postgressource/cmd/receive_adapter
 
         securityContext:
           allowPrivilegeEscalation: false

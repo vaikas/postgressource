@@ -15,16 +15,16 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: sample-source-controller-rolebinding
+  name: postgres-source-controller-rolebinding
   labels:
-    samples.knative.dev/release: devel
+    sources.vaikas.dev/release: devel
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: sample-source-controller
+  name: postgres-source-controller
 subjects:
 - kind: ServiceAccount
-  name: sample-source-controller
+  name: postgres-source-controller
   namespace: knative-samples
 
 ---
@@ -32,12 +32,12 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: sample-source-controller-addressable-resolver
+  name: postgres-source-controller-addressable-resolver
   labels:
-    samples.knative.dev/release: devel
+    sources.vaikas.dev/release: devel
 subjects:
 - kind: ServiceAccount
-  name: sample-source-controller
+  name: postgres-source-controller
   namespace: knative-samples
 # An aggregated ClusterRole for all Addressable CRDs.
 # Ref: https://knative.dev/eventing/blob/master/config/200-addressable-resolvers-clusterrole.yaml

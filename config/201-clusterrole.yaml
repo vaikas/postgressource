@@ -15,9 +15,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: sample-source-controller
+  name: postgres-source-controller
   labels:
-    samples.knative.dev/release: devel
+    sources.vaikas.dev/release: devel
 rules:
 - apiGroups:
   - apps
@@ -46,16 +46,16 @@ rules:
   verbs: *everything
 
 - apiGroups:
-  - samples.knative.dev
+  - sources.vaikas.dev
   resources:
-  - samplesources
+  - postgressources
   verbs: *everything
 
 - apiGroups:
-  - samples.knative.dev
+  - sources.vaikas.dev
   resources:
-  - samplesources/status
-  - samplesources/finalizers
+  - postgressources/status
+  - postgressources/finalizers
   verbs:
   - get
   - update
@@ -88,7 +88,7 @@ rules:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: sample-source-observer
+  name: postgres-source-observer
   labels:
     eventing.knative.dev/release: devel
     duck.knative.dev/source: "true"
@@ -96,7 +96,7 @@ rules:
   - apiGroups:
       - "sources.eventing.knative.dev"
     resources:
-      - "samplesources"
+      - "postgressources"
     verbs:
       - get
       - list

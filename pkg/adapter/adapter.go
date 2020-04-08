@@ -16,12 +16,21 @@ limitations under the License.
 package adapter
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"log"
 	"time"
+
+	_ "database/sql"
+
+	bindingsql "github.com/mattmoor/bindings/pkg/sql"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 
+	"github.com/lib/pq"
 	"knative.dev/eventing/pkg/adapter/v2"
 	"knative.dev/pkg/logging"
 )
@@ -30,8 +39,8 @@ type envConfig struct {
 	// Include the standard adapter.EnvConfig used by all adapters.
 	adapter.EnvConfig
 
-	// Interval between events, for example "5s", "100ms"
-	Interval time.Duration `envconfig:"INTERVAL" required:"true"`
+	// The name of the channel where our events get sent to.
+	NotificationChannel string `envconfig:"NOTIFICATION_CHANNEL" required:"true"`
 }
 
 func NewEnv() adapter.EnvConfigAccessor { return &envConfig{} }
@@ -39,26 +48,24 @@ func NewEnv() adapter.EnvConfigAccessor { return &envConfig{} }
 // Adapter generates events at a regular interval.
 type Adapter struct {
 	client   cloudevents.Client
-	interval time.Duration
 	logger   *zap.SugaredLogger
-
-	nextID int
+	listener *pq.Listener
+	nextID   int
 }
 
-type dataExample struct {
-	Sequence  int    `json:"sequence"`
-	Heartbeat string `json:"heartbeat"`
+type notification struct {
+	Table  string `json:"table"`
+	Action string `json:"action"`
+	Data   string `json:"data"`
 }
 
-func (a *Adapter) newEvent() cloudevents.Event {
+func (a *Adapter) newEvent(n *pq.Notification) cloudevents.Event {
 	event := cloudevents.NewEvent()
-	event.SetType("dev.knative.sample")
-	event.SetSource("sample.knative.dev/heartbeat-source")
+	event.SetType("dev.vaikas.postgres")
+	// Make this into full db + table.
+	event.SetSource(n.Channel)
 
-	if err := event.SetData(cloudevents.ApplicationJSON, &dataExample{
-		Sequence:  a.nextID,
-		Heartbeat: a.interval.String(),
-	}); err != nil {
+	if err := event.SetData(cloudevents.ApplicationJSON, n.Extra); err != nil {
 		a.logger.Errorw("failed to set data")
 	}
 	a.nextID++
@@ -68,17 +75,34 @@ func (a *Adapter) newEvent() cloudevents.Event {
 // Start runs the adapter.
 // Returns if stopCh is closed or Send() returns an error.
 func (a *Adapter) Start(stopCh <-chan struct{}) error {
-	a.logger.Infow("Starting heartbeat", zap.String("interval", a.interval.String()))
+	a.logger.Infow("Starting adapter")
 	for {
 		select {
-		case <-time.After(a.interval):
-			event := a.newEvent()
-			a.logger.Infow("Sending new event", zap.String("event", event.String()))
+		case n := <-a.listener.Notify:
+			fmt.Println("Received data from channel [", n.Channel, "] :")
+			event := a.newEvent(n)
+			event.SetType("dev.vaikas.postgres")
+			// Make this into db/channel and maybe others?
+			event.SetSource(n.Channel)
+
 			if result := a.client.Send(context.Background(), event); !cloudevents.IsACK(result) {
 				a.logger.Infow("failed to send event", zap.String("event", event.String()), zap.Error(result))
 				// We got an error but it could be transient, try again next interval.
 				continue
 			}
+
+			// Prepare notification payload for pretty print
+			var prettyJSON bytes.Buffer
+			err := json.Indent(&prettyJSON, []byte(n.Extra), "", "\t")
+			if err != nil {
+				fmt.Println("Error processing JSON: ", err)
+				return err
+			}
+		case <-time.After(30 * time.Second):
+			fmt.Println("Received no events for 30 seconds, checking connection")
+			go func() {
+				a.listener.Ping()
+			}()
 		case <-stopCh:
 			a.logger.Info("Shutting down...")
 			return nil
@@ -87,12 +111,29 @@ func (a *Adapter) Start(stopCh <-chan struct{}) error {
 }
 
 func NewAdapter(ctx context.Context, aEnv adapter.EnvConfigAccessor, ceClient cloudevents.Client) adapter.Adapter {
-	env := aEnv.(*envConfig) // Will always be our own envConfig type
-	logger := logging.FromContext(ctx)
-	logger.Infow("Heartbeat example", zap.Duration("interval", env.Interval))
+	env := aEnv.(*envConfig)
+
+	connStr, err := bindingsql.ReadKey("connectionstr")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	errHandler := func(ev pq.ListenerEventType, err error) {
+		if err != nil {
+			zap.Error(err)
+		}
+	}
+
+	logging.FromContext(ctx).Infof("Starting to listen for notifications on %q", env.NotificationChannel)
+	listener := pq.NewListener(connStr, 10*time.Second, time.Minute, errHandler)
+	err = listener.Listen(env.NotificationChannel)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return &Adapter{
-		interval: env.Interval,
 		client:   ceClient,
-		logger:   logger,
+		logger:   logging.FromContext(ctx),
+		listener: listener,
 	}
 }

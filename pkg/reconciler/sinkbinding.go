@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/vaikas/postgressource/pkg/reconciler/resources"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -16,7 +17,6 @@ import (
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
-	"knative.dev/sample-source/pkg/reconciler/resources"
 )
 
 // newSinkBindingCreated makes a new reconciler event with event type Normal, and

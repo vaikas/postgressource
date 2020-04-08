@@ -16,12 +16,12 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    samples.knative.dev/release: devel
-    control-plane: sample-source-controller-manager
-  name: sample-source-controller-manager
+    sources.vaikas.dev/release: devel
+    control-plane: postgres-source-controller-manager
+  name: postgres-source-controller-manager
   namespace: knative-samples
 spec:
   selector:
-    control-plane: sample-source-controller-manager
+    control-plane: postgres-source-controller-manager
   ports:
   - port: 443
