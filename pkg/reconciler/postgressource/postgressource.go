@@ -18,11 +18,13 @@ package postgressource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"knative.dev/pkg/logging"
 	pkgreconciler "knative.dev/pkg/reconciler"
 	"knative.dev/pkg/tracker"
@@ -34,6 +36,9 @@ import (
 	reconcilerpostgressource "github.com/vaikas/postgressource/pkg/client/injection/reconciler/sources/v1alpha1/postgressource"
 	"github.com/vaikas/postgressource/pkg/reconciler"
 	"github.com/vaikas/postgressource/pkg/reconciler/postgressource/resources"
+
+	// Needed in case we need to open a db connection
+	_ "github.com/lib/pq"
 )
 
 // newReconciledNormal makes a new reconciler event with event type Normal, and
@@ -46,9 +51,10 @@ func newReconciledNormal(namespace, name string) pkgreconciler.Event {
 type Reconciler struct {
 	ReceiveAdapterImage string `envconfig:"POSTGRES_SOURCE_RA_IMAGE" required:"true"`
 
-	dr  *reconciler.DeploymentReconciler
-	sbr *reconciler.SinkBindingReconciler
-	db  *sql.DB
+	dr           *reconciler.DeploymentReconciler
+	sbr          *reconciler.SinkBindingReconciler
+	db           *sql.DB
+	secretLister corev1listers.SecretLister
 }
 
 // Check that our Reconciler implements Interface
@@ -59,7 +65,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1alpha1.PostgresSo
 	src.Status.InitializeConditions()
 	src.Status.ObservedGeneration = src.Generation
 
-	err := r.reconcileDBFunction(ctx, src)
+	db, err := r.getDB(ctx, src)
+	if err != nil {
+		src.Status.PropagateFunctionCreated(false, err)
+		return err
+	}
+
+	err = r.reconcileDBFunction(ctx, db, src)
 	if err != nil {
 		src.Status.PropagateFunctionCreated(false, err)
 		logging.FromContext(ctx).Warnf("Failed to create function: %w", err)
@@ -71,7 +83,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1alpha1.PostgresSo
 		logging.FromContext(ctx).Infof("Reconciling table: %q", table.Name)
 
 		// Check that the table exists
-		tableExists, err := r.checkTable(ctx, table.Name)
+		tableExists, err := r.checkTable(ctx, db, table.Name)
 		if err != nil {
 			src.Status.PropagateTriggersCreated(false, err)
 			logging.FromContext(ctx).Warnf("Couldn't check the existence of table %q: %w", table.Name, err)
@@ -83,7 +95,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1alpha1.PostgresSo
 			return err
 		}
 
-		err = r.reconcileDBTrigger(ctx, src, table.Name)
+		err = r.reconcileDBTrigger(ctx, db, src, table.Name)
 		if err != nil {
 			src.Status.PropagateTriggersCreated(false, err)
 			logging.FromContext(ctx).Warnf("Failed to reconcile triggers on table %q: %w", table.Name, err)
@@ -129,15 +141,19 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1alpha1.PostgresSo
 
 // FinalizeKind removes the triggers and functions.
 func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1alpha1.PostgresSource) pkgreconciler.Event {
+	db, err := r.getDB(ctx, src)
+	if err != nil {
+		return err
+	}
 	logging.FromContext(ctx).Infof("IN FINALIZE FOR \"%s/%s\"", src.Namespace, src.Name)
 	for _, table := range src.Spec.Tables {
 		logging.FromContext(ctx).Infof("Dropping triggers on table: %q", table.Name)
-		err := r.dropTriggers(ctx, src, table.Name)
+		err := r.dropTriggers(ctx, db, src, table.Name)
 		if err != nil {
 			return err
 		}
 	}
-	err := r.dropFunction(ctx, src)
+	err = r.dropFunction(ctx, db, src)
 	if err != nil {
 		return err
 	}
@@ -145,8 +161,8 @@ func (r *Reconciler) FinalizeKind(ctx context.Context, src *v1alpha1.PostgresSou
 }
 
 // TODO: Diff the function in case it has changed and update it.
-func (r *Reconciler) reconcileDBFunction(ctx context.Context, s *v1alpha1.PostgresSource) error {
-	exists, err := r.checkFunction(ctx, s)
+func (r *Reconciler) reconcileDBFunction(ctx context.Context, db *sql.DB, s *v1alpha1.PostgresSource) error {
+	exists, err := r.checkFunction(ctx, db, s)
 	if err != nil {
 		return err
 	}
@@ -165,8 +181,8 @@ func (r *Reconciler) reconcileDBFunction(ctx context.Context, s *v1alpha1.Postgr
 
 }
 
-func (r *Reconciler) reconcileDBTrigger(ctx context.Context, s *v1alpha1.PostgresSource, table string) error {
-	exists, err := r.checkTriggers(ctx, s, table)
+func (r *Reconciler) reconcileDBTrigger(ctx context.Context, db *sql.DB, s *v1alpha1.PostgresSource, table string) error {
+	exists, err := r.checkTriggers(ctx, db, s, table)
 	if err != nil {
 		return err
 	}
@@ -185,8 +201,8 @@ func (r *Reconciler) reconcileDBTrigger(ctx context.Context, s *v1alpha1.Postgre
 }
 
 // Just make sure the table we're trying to create triggers against table that actually exists.
-func (r *Reconciler) checkTable(ctx context.Context, table string) (bool, error) {
-	rows, err := r.db.Query(resources.GetTableQuery, table)
+func (r *Reconciler) checkTable(ctx context.Context, db *sql.DB, table string) (bool, error) {
+	rows, err := db.Query(resources.GetTableQuery, table)
 	if err != nil {
 		return false, err
 	}
@@ -204,9 +220,9 @@ func (r *Reconciler) checkTable(ctx context.Context, table string) (bool, error)
 	return false, rows.Err()
 }
 
-func (r *Reconciler) checkTriggers(ctx context.Context, src *v1alpha1.PostgresSource, table string) (bool, error) {
+func (r *Reconciler) checkTriggers(ctx context.Context, db *sql.DB, src *v1alpha1.PostgresSource, table string) (bool, error) {
 	tName := resources.MakePostgresName(src)
-	rows, err := r.db.Query(resources.GetTriggersQuery, table, tName)
+	rows, err := db.Query(resources.GetTriggersQuery, table, tName)
 	var insert, update, delete bool
 	if err != nil {
 		return false, err
@@ -233,9 +249,9 @@ func (r *Reconciler) checkTriggers(ctx context.Context, src *v1alpha1.PostgresSo
 	return insert == true && update == true && delete == true, rows.Err()
 }
 
-func (r *Reconciler) checkFunction(ctx context.Context, src *v1alpha1.PostgresSource) (bool, error) {
+func (r *Reconciler) checkFunction(ctx context.Context, db *sql.DB, src *v1alpha1.PostgresSource) (bool, error) {
 	fName := resources.MakePostgresName(src)
-	rows, err := r.db.Query(resources.GetFunctionQuery, fName)
+	rows, err := db.Query(resources.GetFunctionQuery, fName)
 	if err != nil {
 		return false, err
 	}
@@ -254,12 +270,40 @@ func (r *Reconciler) checkFunction(ctx context.Context, src *v1alpha1.PostgresSo
 	return false, rows.Err()
 }
 
-func (r *Reconciler) dropFunction(ctx context.Context, src *v1alpha1.PostgresSource) error {
-	_, err := r.db.Exec(resources.MakeDropFunction(src))
+func (r *Reconciler) dropFunction(ctx context.Context, db *sql.DB, src *v1alpha1.PostgresSource) error {
+	_, err := db.Exec(resources.MakeDropFunction(src))
 	return err
 }
 
-func (r *Reconciler) dropTriggers(ctx context.Context, src *v1alpha1.PostgresSource, table string) error {
-	_, err := r.db.Exec(resources.MakeDropTrigger(src, table))
+func (r *Reconciler) dropTriggers(ctx context.Context, db *sql.DB, src *v1alpha1.PostgresSource, table string) error {
+	_, err := db.Exec(resources.MakeDropTrigger(src, table))
 	return err
+}
+
+func (r *Reconciler) getDB(ctx context.Context, src *v1alpha1.PostgresSource) (*sql.DB, error) {
+	// If there's only one db, use that.
+	if r.db != nil && src.Spec.Secret == nil {
+		return r.db, nil
+	}
+
+	// If there's no global one and not one specified in the spec, we can't
+	// move forward, bail.
+	if r.db == nil && src.Spec.Secret == nil {
+		src.Status.PropagateFunctionCreated(false, errors.New("Database credentials not specified, can not proceed"))
+		return nil, errors.New("Database credentials not specified, can not proceed")
+	}
+
+	// If the source specified the credentials to use, use them.
+	secret := src.Spec.Secret
+	if secret != nil {
+		s, err := r.secretLister.Secrets(secret.Namespace).Get(secret.Name)
+		if err != nil {
+			return nil, err
+		}
+		if connstr, exists := s.Data["connectionstr"]; exists {
+			logging.FromContext(ctx).Infof("GOT CONN STR AS %q", connstr)
+			return sql.Open("postgres", string(connstr))
+		}
+	}
+	return nil, errors.New("Failed to get a usable db connection")
 }

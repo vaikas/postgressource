@@ -132,7 +132,7 @@
   version = "v0.2.1"
 
 [[projects]]
-  digest = "1:4df69ca05ecc02eca2f01817fa084733cf06cf091e598dab2722cba846e2379f"
+  digest = "1:a8f534ea3140742592cf2b3b8ed18a01939a207238e4c1411d01b66eec2137c3"
   name = "github.com/cloudevents/sdk-go"
   packages = [
     "v1",
@@ -166,8 +166,8 @@
     "v2/types",
   ]
   pruneopts = "NUT"
-  revision = "6dc020a8df7f3ee38d729e53cde2193ea7edf12a"
-  version = "v2.0.0-preview8"
+  revision = "3638af885cfe1cc7dd7421d23ebe4dbf278d1937"
+  version = "v2.0.0-RC1"
 
 [[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
@@ -1386,6 +1386,7 @@
     "changeset",
     "client/injection/kube/client",
     "client/injection/kube/informers/apps/v1/deployment",
+    "client/injection/kube/informers/core/v1/secret",
     "client/injection/kube/informers/factory",
     "codegen/cmd/injection-gen",
     "codegen/cmd/injection-gen/args",
@@ -1468,6 +1469,7 @@
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
+    "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
@@ -1490,6 +1492,7 @@
     "knative.dev/pkg/apis/duck/v1alpha1",
     "knative.dev/pkg/client/injection/kube/client",
     "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/secret",
     "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
     "knative.dev/pkg/controller",

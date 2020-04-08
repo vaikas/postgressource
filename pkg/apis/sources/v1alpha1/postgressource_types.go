@@ -81,6 +81,20 @@ type PostgresSourceSpec struct {
 	// in which the PostgresSource exists.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// Secret to use when creating functions/triggers on the database.
+	// You can use this to override the secret that's typically a
+	// a binding for the entire controller.
+	// The secret must have a field 'connectionstr' in the data
+	// section, for example:
+	// apiVersion: v1
+	// kind: Secret
+	// data:
+	//  connectionstr: <base64 encoded connection string>
+	// type: Opaque
+	//
+	// +optional
+	Secret *duckv1.KReference `json:"secret,omitempty"`
 }
 
 type TableSpec struct {
