@@ -19,7 +19,6 @@ package resources
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/tracker"
@@ -37,15 +36,12 @@ func MakePostgresBinding(ctx context.Context, src *v1alpha1.PostgresSource) *bin
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(src)},
 		},
 		Spec: bindingsv1alpha1.SQLBindingSpec{
-			Secret: corev1.LocalObjectReference{Name: src.Spec.Secret.Name},
-			// Bind to the Deployment for the receive adapter.
-			BindingSpec: duckv1alpha1.BindingSpec{
-				Subject: tracker.Reference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Namespace:  src.Namespace,
-					Name:       names.Deployment(vms),
-				},
+			Secret: src.Spec.Secret,
+			Subject: tracker.Reference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Namespace:  src.Namespace,
+				Name:       names.Deployment(src),
 			},
 		},
 	}

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -93,8 +94,7 @@ type PostgresSourceSpec struct {
 	//  connectionstr: <base64 encoded connection string>
 	// type: Opaque
 	//
-	// +optional
-	Secret *duckv1.KReference `json:"secret,omitempty"`
+	Secret corev1.LocalObjectReference `json:"secret"`
 }
 
 type TableSpec struct {
