@@ -449,12 +449,23 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:67e31d4ae705ef9dea3e9abd6adc379e4f13e55d36fc7da33bad024a00706986"
+  digest = "1:d885dd3d8b69b9aac440b43187d6323bffea4f48782ef3612b55548412db9457"
   name = "github.com/mattmoor/bindings"
   packages = [
     "pkg/apis/bindings",
     "pkg/apis/bindings/v1alpha1",
     "pkg/bindings",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/bindings/v1alpha1",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/bindings",
+    "pkg/client/informers/externalversions/bindings/v1alpha1",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/injection/client",
+    "pkg/client/injection/informers/bindings/v1alpha1/sqlbinding",
+    "pkg/client/injection/informers/factory",
+    "pkg/client/listers/bindings/v1alpha1",
     "pkg/cloudsql",
     "pkg/github",
     "pkg/slack",
@@ -1472,7 +1483,9 @@
     "client/injection/kube/client",
     "client/injection/kube/informers/apps/v1/deployment",
     "client/injection/kube/informers/core/v1/secret",
+    "client/injection/kube/informers/core/v1/serviceaccount",
     "client/injection/kube/informers/factory",
+    "client/injection/kube/informers/rbac/v1/rolebinding",
     "codegen/cmd/injection-gen",
     "codegen/cmd/injection-gen/args",
     "codegen/cmd/injection-gen/generators",
@@ -1533,6 +1546,9 @@
     "github.com/kelseyhightower/envconfig",
     "github.com/lib/pq",
     "github.com/mattmoor/bindings/pkg/apis/bindings/v1alpha1",
+    "github.com/mattmoor/bindings/pkg/client/clientset/versioned",
+    "github.com/mattmoor/bindings/pkg/client/injection/informers/bindings/v1alpha1/sqlbinding",
+    "github.com/mattmoor/bindings/pkg/client/listers/bindings/v1alpha1",
     "github.com/mattmoor/bindings/pkg/sql",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
@@ -1556,6 +1572,7 @@
     "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/listers/core/v1",
+    "k8s.io/client-go/listers/rbac/v1",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
@@ -1579,6 +1596,8 @@
     "knative.dev/pkg/client/injection/kube/client",
     "knative.dev/pkg/client/injection/kube/informers/apps/v1/deployment",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/secret",
+    "knative.dev/pkg/client/injection/kube/informers/core/v1/serviceaccount",
+    "knative.dev/pkg/client/injection/kube/informers/rbac/v1/rolebinding",
     "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
     "knative.dev/pkg/controller",

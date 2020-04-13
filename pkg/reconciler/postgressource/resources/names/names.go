@@ -33,7 +33,7 @@ func SinkBinding(src *v1alpha1.PostgresSource) string {
 	return kmeta.ChildName(fmt.Sprintf("postgressource-%s-sinkbinding", src.Name), string(src.GetUID()))
 }
 
-func SqlBinding(src *v1alpha1.PostgresSource) string {
+func SQLBinding(src *v1alpha1.PostgresSource) string {
 	return kmeta.ChildName(fmt.Sprintf("postgressource-%s-sqlbinding", src.Name), string(src.GetUID()))
 }
 

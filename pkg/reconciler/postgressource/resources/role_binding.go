@@ -19,30 +19,32 @@ package resources
 import (
 	"context"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/kmeta"
-	"knative.dev/pkg/tracker"
-
-	bindingsv1alpha1 "github.com/mattmoor/bindings/pkg/apis/bindings/v1alpha1"
 	"github.com/vaikas/postgressource/pkg/apis/sources/v1alpha1"
 	"github.com/vaikas/postgressource/pkg/reconciler/postgressource/resources/names"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmeta"
 )
 
-func MakePostgresBinding(ctx context.Context, src *v1alpha1.PostgresSource) *bindingsv1alpha1.SQLBinding {
-	return &bindingsv1alpha1.SQLBinding{
+// MakeRoleBinding creates a RoleBinding object for the receive adapter
+// service account 'sa' in the Namespace 'ns'. This is necessary for
+// the receive adapter to be able to store state in configmaps.
+func MakeRoleBinding(ctx context.Context, src *v1alpha1.PostgresSource) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            kmeta.ChildName(src.Name, "-sqlbinding"),
-			Namespace:       src.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(src)},
+			Name:            names.RoleBinding(src),
+			Namespace:       src.Namespace,
 		},
-		Spec: bindingsv1alpha1.SQLBindingSpec{
-			Secret: src.Spec.Secret,
-			Subject: tracker.Reference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Namespace:  src.Namespace,
-				Name:       names.Deployment(src),
-			},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "postgressource-receive-adapter-cm",
 		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Namespace: src.Namespace,
+			Name:      names.ServiceAccount(src),
+		}},
 	}
 }
