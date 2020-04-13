@@ -104,6 +104,11 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, src *v1alpha1.PostgresSo
 		src.Status.PropagateTriggersCreated(true, nil)
 	}
 
+	// Reconcile the Postgres binding so that RA can access the db
+	if err := r.reconcilePostgresBinding(ctx, src); err != nil {
+		return err
+	}
+
 	ra, event := r.dr.ReconcileDeployment(ctx, src, resources.MakeReceiveAdapter(&resources.ReceiveAdapterArgs{
 		EventSource:         src.Namespace + "/" + src.Name,
 		Image:               r.ReceiveAdapterImage,
@@ -306,4 +311,35 @@ func (r *Reconciler) getDB(ctx context.Context, src *v1alpha1.PostgresSource) (*
 		}
 	}
 	return nil, errors.New("Failed to get a usable db connection")
+}
+
+func (r *Reconciler) reconcilePostgres(ctx context.Context, src *v1alpha1.PostgresSource) error {
+	ns := src.Namespace
+	vspherebindingName := resourcenames.VSphereBinding(vms)
+
+	vspherebinding, err := r.vspherebindingLister.VSphereBindings(ns).Get(vspherebindingName)
+	if apierrs.IsNotFound(err) {
+		vspherebinding = resources.MakeVSphereBinding(ctx, vms)
+		vspherebinding, err = r.client.SourcesV1alpha1().VSphereBindings(ns).Create(vspherebinding)
+		if err != nil {
+			return fmt.Errorf("failed to create vspherebinding %q: %w", vspherebindingName, err)
+		}
+		logging.FromContext(ctx).Infof("Created vspherebinding %q", vspherebindingName)
+	} else if err != nil {
+		return fmt.Errorf("failed to get vspherebinding %q: %w", vspherebindingName, err)
+	} else {
+		// The vspherebinding exists, but make sure that it has the shape that we expect.
+		desiredVSphereBinding := resources.MakeVSphereBinding(ctx, vms)
+		vspherebinding = vspherebinding.DeepCopy()
+		vspherebinding.Spec = desiredVSphereBinding.Spec
+		vspherebinding, err = r.client.SourcesV1alpha1().VSphereBindings(ns).Update(vspherebinding)
+		if err != nil {
+			return fmt.Errorf("failed to create vspherebinding %q: %w", vspherebindingName, err)
+		}
+	}
+
+	// Reflect the state of the VSphereBinding in the VSphereSource
+	vms.Status.PropagateAuthStatus(vspherebinding.Status.Status)
+
+	return nil
 }
