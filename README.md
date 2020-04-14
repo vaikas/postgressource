@@ -15,6 +15,57 @@ installs into `knative-sources` namespace.
 ko apply -f ./config/
 ```
 
+### SHOW ME
+
+Ok, so once you get everything up and running, then you can create a Postgres
+Source binding. Before you can do that, you need to create a `Secret` that has
+the credentials for accessing your Postgres database. The secret must have the
+connection string used to connect to the Postgres database and the field must be
+called `connectionstr`.
+
+
+Say my db is at `127.0.0.1` and my username is `foobar` and password is `really`
+and the database I want to use is `users`, I could create that secret like so:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sql-secret
+  namespace: default
+stringData:
+  connectionstr: postgres://foobar:really@127.0.0.1:5432/users
+```
+
+Other ways to specify the connectionstr that postgres expects for its open
+connection should be supported, but has not been tested...
+
+Furthermore, say the table I want to get notified on when things change is
+called `orders` and I want to send those events to my default `Broker` in the
+default namespace, I could create a PostgresSource like so:
+
+```yaml
+apiVersion: sources.vaikas.dev/v1alpha1
+kind: PostgresSource
+metadata:
+  name: vaikaspostgres
+  namespace: default
+spec:
+  tables:
+  - name: orders
+  secret:
+    name: sql-secret
+  sink:
+    ref:
+      apiVersion: eventing.knative.dev/v1beta1
+      kind: Broker
+      name: default
+```
+
+And that's it. Once you create that, any modifications to orders table are now
+fed as Cloud Events into the default Broker and then you can use Knative
+Eventing `Trigger`s to process those events as you see fit.
+
 ## Inner workings
 
 ### Function
@@ -91,57 +142,6 @@ dedicated `Service Account` in the namespace the Postgres Source is created and
 create a Role Binding for being able to use `ConfigMap`s for getting logging
 config information as well as to (future work) be able to (possibly) checkpoint
 our work and hence not miss any events in case of failures.
-
-### SHOW ME
-
-Ok, so once you get everything up and running, then you can create a Postgres
-Source binding. Before you can do that, you need to create a `Secret` that has
-the credentials for accessing your Postgres database. The secret must have the
-connection string used to connect to the Postgres database and the field must be
-called `connectionstr`.
-
-
-Say my db is at `127.0.0.1` and my username is `foobar` and password is `really`
-and the database I want to use is `users`, I could create that secret like so:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sql-secret
-  namespace: default
-stringData:
-  connectionstr: postgres://foobar:really@127.0.0.1:5432/users
-```
-
-Other ways to specify the connectionstr that postgres expects for its open
-connection should be supported, but has not been tested...
-
-Furthermore, say the table I want to get notified on when things change is
-called `orders` and I want to send those events to my default `Broker` in the
-default namespace, I could create a PostgresSource like so:
-
-```yaml
-apiVersion: sources.vaikas.dev/v1alpha1
-kind: PostgresSource
-metadata:
-  name: vaikaspostgres
-  namespace: default
-spec:
-  tables:
-  - name: orders
-  secret:
-    name: sql-secret
-  sink:
-    ref:
-      apiVersion: eventing.knative.dev/v1beta1
-      kind: Broker
-      name: default
-```
-
-And that's it. Once you create that, any modifications to orders table are now
-fed as Cloud Events into the default Broker and then you can use Knative
-Eventing `Trigger`s to process those events as you see fit.
 
 To learn more about Knative, please visit our
 [Knative docs](https://github.com/knative/docs) repository.
