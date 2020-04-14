@@ -21,7 +21,9 @@ Ok, so once you get everything up and running, then you can create a Postgres
 Source binding. Before you can do that, you need to create a `Secret` that has
 the credentials for accessing your Postgres database. The secret must have the
 connection string used to connect to the Postgres database and the field must be
-called `connectionstr`.
+called `connectionstr`.asdf
+
+This...
 
 
 Say my db is at `127.0.0.1` and my username is `foobar` and password is `really`

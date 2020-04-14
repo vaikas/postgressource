@@ -22,7 +22,7 @@ data:
   zap-logger-config: |
     {
       "level": "info",
-      "development": false,
+      "development": true,
       "outputPaths": ["stdout"],
       "errorOutputPaths": ["stderr"],
       "encoding": "json",
