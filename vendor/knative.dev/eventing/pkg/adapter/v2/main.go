@@ -24,7 +24,6 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-
 	"github.com/kelseyhightower/envconfig"
 	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
@@ -33,12 +32,10 @@ import (
 	"knative.dev/pkg/profiling"
 	"knative.dev/pkg/signals"
 	"knative.dev/pkg/source"
-
-	"knative.dev/eventing/pkg/tracing"
 )
 
 type Adapter interface {
-	Start(stopCh <-chan struct{}) error
+	Start(ctx context.Context) error
 }
 
 type AdapterConstructor func(ctx context.Context, env EnvConfigAccessor, client cloudevents.Client) Adapter
@@ -95,7 +92,7 @@ func MainWithContext(ctx context.Context, component string, ector EnvConfigConst
 		logger.Error("error building statsreporter", zap.Error(err))
 	}
 
-	if err = tracing.SetupStaticPublishing(logger, "", tracing.OnePercentSampling); err != nil {
+	if err := env.SetupTracing(logger); err != nil {
 		// If tracing doesn't work, we will log an error, but allow the adapter
 		// to continue to start.
 		logger.Error("Error setting up trace publishing", zap.Error(err))
@@ -116,7 +113,7 @@ func MainWithContext(ctx context.Context, component string, ector EnvConfigConst
 
 	logger.Info("Starting Receive Adapter", zap.Any("adapter", adapter))
 
-	if err := adapter.Start(ctx.Done()); err != nil {
+	if err := adapter.Start(ctx); err != nil {
 		logger.Warn("start returned an error", zap.Error(err))
 	}
 }
