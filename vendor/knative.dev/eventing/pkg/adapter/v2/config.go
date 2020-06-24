@@ -19,13 +19,28 @@ import (
 	"encoding/json"
 
 	"go.uber.org/zap"
+	tracingconfig "knative.dev/pkg/tracing/config"
 
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
+
+	"knative.dev/eventing/pkg/tracing"
 )
 
 type EnvConfigConstructor func() EnvConfigAccessor
+
+const (
+	EnvConfigComponent     = "K_COMPONENT"
+	EnvConfigNamespace     = "NAMESPACE"
+	EnvConfigName          = "NAME"
+	EnvConfigResourceGroup = "K_RESOURCE_GROUP"
+	EnvConfigSink          = "K_SINK"
+	EnvConfigCEOverrides   = "K_CE_OVERRIDES"
+	EnvConfigMetricsConfig = "K_METRICS_CONFIG"
+	EnvConfigLoggingConfig = "K_LOGGING_CONFIG"
+	EnvConfigTracingConfig = "K_TRACING_CONFIG"
+)
 
 // EnvConfig is the minimal set of configuration parameters
 // source adapters should support.
@@ -58,6 +73,12 @@ type EnvConfig struct {
 	// This is used to configure the logging config, the config is stored in
 	// a config map inside the controllers namespace and copied here.
 	LoggingConfigJson string `envconfig:"K_LOGGING_CONFIG" required:"true"`
+
+	// TracingConfigJson is a json string of tracing.Config.
+	// This is used to configure the tracing config, the config is stored in
+	// a config map inside the controllers namespace and copied here.
+	// Default is no-op.
+	TracingConfigJson string `envconfig:"K_TRACING_CONFIG"`
 }
 
 // EnvConfigAccessor defines accessors for the minimal
@@ -80,6 +101,8 @@ type EnvConfigAccessor interface {
 
 	// Get the parsed logger.
 	GetLogger() *zap.SugaredLogger
+
+	SetupTracing(*zap.SugaredLogger) error
 
 	GetCloudEventOverrides() (*duckv1.CloudEventOverrides, error)
 }
@@ -124,6 +147,14 @@ func (e *EnvConfig) GetNamespace() string {
 
 func (e *EnvConfig) GetName() string {
 	return e.Name
+}
+
+func (e *EnvConfig) SetupTracing(logger *zap.SugaredLogger) error {
+	config, err := tracingconfig.JsonToTracingConfig(e.TracingConfigJson)
+	if err != nil {
+		logger.Warn("Tracing configuration is invalid, using the no-op default", zap.Error(err))
+	}
+	return tracing.SetupStaticPublishing(logger, e.Component, config)
 }
 
 func (e *EnvConfig) GetCloudEventOverrides() (*duckv1.CloudEventOverrides, error) {
