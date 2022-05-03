@@ -7,6 +7,7 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.0.1-0.20200608152019-2ab697c8fc0b
 	github.com/dghubble/go-twitter v0.0.0-20190719072343-39e5462e111f // indirect
 	github.com/dghubble/oauth1 v0.6.0 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.14.3 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect
@@ -15,9 +16,6 @@ require (
 	github.com/mattmoor/bindings v0.0.0-20200407200925-5386370566e6
 	github.com/nlopes/slack v0.6.0 // indirect
 	go.uber.org/zap v1.14.1
-	golang.org/x/crypto v0.0.0-20200406173513-056763e48d71 // indirect
-	golang.org/x/sys v0.0.0-20200408040146-ea54a3c99b9b // indirect
-	golang.org/x/tools v0.0.0-20200408132156-9ee5ef7a2c0d // indirect
 	google.golang.org/api v0.21.0 // indirect
 	google.golang.org/grpc v1.28.1 // indirect
 	k8s.io/api v0.17.6
