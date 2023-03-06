@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/cloudevents/sdk-go/v2 v2.13.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/lib/pq v1.3.0
+	github.com/lib/pq v1.10.7
 	github.com/mattmoor/bindings v0.0.0-20200407200925-5386370566e6
 	go.uber.org/zap v1.21.0
 	k8s.io/api v0.25.4
